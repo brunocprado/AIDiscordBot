@@ -82,7 +82,6 @@ async def tts(ctx, user_response: str, voice: typing.Optional[str] = 'bruno', pi
             sleep(.1)
         #await ctx.voice_client.disconnect()
 
-    # clean up!
     os.remove(outputedgetts)
     os.remove(outputpath)
 
@@ -113,5 +112,111 @@ async def diff(ctx, *, user_response: str):
     image = Image.open(io.BytesIO(base64.b64decode(response.json()['images'][0])))
     image.save('output.png')
     await ctx.send(file=discord.File('output.png'))
+
+############################## MUSICA ################################
+
+@bot.command(name = "cover")
+async def cover(ctx, musica: str, voz: typing.Optional[str] = 'brunov5', pitch: typing.Optional[int] = 0): #, separar_vocal:  typing.Optional[str] = '1'):
+    global vc
+    flag = 0
+    print(voz, pitch, musica)
+
+    msg = await ctx.send("Baixando música")
+    pos = random.randint(0, 999)
+    outputedgetts = f"say_{pos}.mp3"
+    audio = outputedgetts
+
+    cmd = ["yt-dlp", '--extract-audio', '--audio-format', 'mp3', musica, "-o", outputedgetts]
+    subprocess.run(cmd)
+
+    #if separar_vocal == "1":
+    await msg.edit(content="Separando vocal do instrumental")
+
+    separator = Separator()
+    separator.load_model()
+    separado  = separator.separate(outputedgetts)
+    
+    await msg.edit(content="Convertendo voz")
+
+    rvc_convert(model_path='weights/' + voz + '/' + voz + '.pth',
+                file_index='weights/' + voz + '/' + voz + '.index',
+                index_rate=0.8,
+                f0_up_key=pitch,
+                input_path=separado[0],
+                output_file_name=f"out{pos}.wav"
+                )
+    
+    commandff2 = ["ffmpeg", "-i", f"output/out{pos}.wav", "-i", separado[1], '-filter_complex', 'amerge=inputs=2', '-ac', '2', '-b:a', '192K',  f"output/mus{pos}.mp3", "-y"]
+    subprocess.run(commandff2)
+
+    await msg.delete()
+
+    outputpath = f"output/mus{pos}.mp3"
+    #audio_file = discord.File(outputpath)
+
+    # Send the audio file to discord
+    if flag == 0:
+        await ctx.send(file=audio_file)
+    else:
+        ctx.voice_client.play(discord.FFmpegPCMAudio(outputpath))
+        #vc.play(discord.FFmpegPCMAudio(outputpath))
+        time.sleep(10)   
+        # sleep(10)
+        ctx.voice_client.stop()
+        #await ctx.voice_client.disconnect()
+
+    os.remove(f"output/out{pos}.wav")
+    os.remove(outputedgetts)
+    os.remove(outputpath)
+    os.remove(separado[0])
+    os.remove(separado[1])
+
+
+@bot.command(name = "separar") #Separa vocal/instrumental de um determinado vídeo
+async def separar(ctx, musica: str, audio_selecionado: str):
+    flag = 0
+    msg = await ctx.send("Baixando música")
+
+    pos = random.randint(0, 999)
+
+    outputedgetts = f"say_{pos}.mp3"
+
+    cmd = ["yt-dlp", '--extract-audio', '--audio-format', 'mp3', musica, "-o", outputedgetts]
+    subprocess.run(cmd)
+
+    #if separar_vocal == "1":
+    await msg.edit(content="Separando vocal do instrumental")
+
+    separator = Separator()
+    separator.load_model()
+    separado  = separator.separate(outputedgetts)
+
+    await msg.delete()
+
+    commandff2 = ["ffmpeg", "-i", separado[0] if audio_selecionado == "vocal" else separado[1], "-b:a", "256K", 'saida_' + outputedgetts, "-y"]
+    subprocess.run(commandff2)
+
+    audio_file = discord.File('saida_' + outputedgetts)
+
+    # Send the audio file to discord
+    if flag == 0:
+        await ctx.send(file=audio_file)
+    else:
+        vc = 0
+        try:
+            vc = await ctx.author.voice.channel.connect() #voice = await channel.connect()
+        except:
+            #await vc.disconnect()
+            vc = ctx.voice_client
+        
+        vc.play(discord.FFmpegPCMAudio('saida_' + outputedgetts))
+        while vc.is_playing():
+            sleep(.1)
+        #await ctx.voice_client.disconnect()
+
+    os.remove('saida_' + outputedgetts)
+    os.remove(outputedgetts)
+    os.remove(separado[0])
+    os.remove(separado[1])
 
 bot.run(DISCORD_TOKEN)
