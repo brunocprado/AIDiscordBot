@@ -91,5 +91,27 @@ async def entrar(ctx, args):
     global vc
     vc = await ctx.author.voice.channel.connect()
 
+@bot.command(name = "diff")
+async def diff(ctx, *, user_response: str):
+    resolucao = 1024
+    modo = "turbo"
+
+    response = requests.post(url=f'http://127.0.0.1:7860/sdapi/v1/txt2img', json={
+        "prompt": user_response,
+        "steps": 9 if modo == "turbo" else 20,
+        "sampler_name": 'DPM++ SDE Karras', #'DPM++ 3M SDE' #Modelos turbo geralmente indicam o uso de DPM++SDE Karras
+        "cfg_scale": 2 if modo == "turbo" else 7, #2 de CFG é mais que suficiente para Turbo e lightning
+        "width": resolucao, "height": resolucao,
+        "negative_prompt" : '(octane render, render, drawing, anime, bad photo, bad photography:1.3), (worst quality, low quality, blurry:1.2), (bad teeth, deformed teeth, deformed lips), (bad anatomy, bad proportions:1.1), (deformed iris, deformed pupils), (deformed eyes, bad eyes), (deformed face, ugly face, bad face), (deformed hands, bad hands, fused fingers), morbid, mutilated, mutation, disfigured'
+    })
+
+    if('images' not in response.json()):
+        await ctx.send("Stable diff disabled")
+    
+    print(response.json())
+
+    image = Image.open(io.BytesIO(base64.b64decode(response.json()['images'][0])))
+    image.save('output.png')
+    await ctx.send(file=discord.File('output.png'))
 
 bot.run(DISCORD_TOKEN)
