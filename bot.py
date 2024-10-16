@@ -58,7 +58,7 @@ async def on_ready():
 
 @bot.tree.command(name = "listarvozes")
 async def listarVozes(ctx):
-    ctx.response.send_message(os.listdir('weights/'))
+    await ctx.response.send_message(os.listdir('weights/'))
 
 
 async def getCanal(interaction: discord.Interaction):
